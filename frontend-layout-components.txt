@@ -1,0 +1,350 @@
+// src/components/layout/Navbar.tsx
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../hooks/useAuth';
+
+const Navbar: React.FC = () => {
+  const { authState, logout } = useAuth();
+  const { isAuthenticated, user } = authState;
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  return (
+    <nav className="bg-primary border-b border-gray-200 px-4 py-2.5 fixed w-full z-10 top-0 left-0 shadow-md">
+      <div className="container flex flex-wrap justify-between items-center mx-auto">
+        <Link to="/" className="flex items-center">
+          <img
+            src="/images/logo.svg"
+            className="mr-3 h-10"
+            alt="Recipe Optimizer Logo"
+          />
+          <span className="self-center text-2xl font-bold whitespace-nowrap text-white">
+            Recipe Optimizer
+          </span>
+        </Link>
+
+        <div className="flex items-center md:order-2">
+          {isAuthenticated ? (
+            <div className="flex items-center">
+              <button
+                type="button"
+                className="flex mr-3 text-sm bg-white rounded-full md:mr-0 focus:ring-4 focus:ring-gray-300"
+                id="user-menu-button"
+                aria-expanded={isMenuOpen}
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+              >
+                <span className="sr-only">Open user menu</span>
+                {user?.profileImage ? (
+                  <img
+                    className="w-8 h-8 rounded-full"
+                    src={user.profileImage}
+                    alt={user.username}
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white font-bold">
+                    {user?.username.charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </button>
+              <div
+                className={`${
+                  isMenuOpen ? '' : 'hidden'
+                } absolute top-10 right-4 z-50 my-4 text-base list-none bg-white rounded divide-y divide-gray-100 shadow`}
+                id="user-dropdown"
+              >
+                <div className="py-3 px-4">
+                  <span className="block text-sm text-gray-900">
+                    {user?.username}
+                  </span>
+                  <span className="block text-sm font-medium text-gray-500 truncate">
+                    {user?.email}
+                  </span>
+                </div>
+                <ul className="py-1" aria-labelledby="user-menu-button">
+                  <li>
+                    <Link
+                      to="/profile"
+                      className="block py-2 px-4 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Profile
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/settings"
+                      className="block py-2 px-4 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Settings
+                    </Link>
+                  </li>
+                  <li>
+                    <button
+                      className="block w-full text-left py-2 px-4 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => {
+                        setIsMenuOpen(false);
+                        handleLogout();
+                      }}
+                    >
+                      Sign out
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          ) : (
+            <div className="flex space-x-2">
+              <Link
+                to="/login"
+                className="text-white bg-accent hover:bg-accent-600 focus:ring-4 focus:ring-accent-300 font-medium rounded-lg text-sm px-4 py-2 text-center"
+              >
+                Login
+              </Link>
+              <Link
+                to="/register"
+                className="text-primary bg-white hover:bg-gray-100 focus:ring-4 focus:ring-gray-300 font-medium rounded-lg text-sm px-4 py-2 text-center"
+              >
+                Register
+              </Link>
+            </div>
+          )}
+        </div>
+
+        {isAuthenticated && (
+          <div
+            className="hidden justify-between items-center w-full md:flex md:w-auto md:order-1"
+            id="navbar-links"
+          >
+            <ul className="flex flex-col p-4 mt-4 bg-gray-50 rounded-lg border border-gray-100 md:flex-row md:space-x-8 md:mt-0 md:text-sm md:font-medium md:border-0 md:bg-transparent">
+              <li>
+                <Link
+                  to="/meals"
+                  className="block py-2 pr-4 pl-3 text-white rounded md:bg-transparent md:p-0"
+                  aria-current="page"
+                >
+                  Meals
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to="/ingredients"
+                  className="block py-2 pr-4 pl-3 text-white rounded md:bg-transparent md:p-0"
+                >
+                  Ingredients
+                </Link>
+              </li>
+            </ul>
+          </div>
+        )}
+      </div>
+    </nav>
+  );
+};
+
+export default Navbar;
+
+// src/components/layout/Sidebar.tsx
+import React from 'react';
+import { Link, useLocation } from 'react-router-dom';
+import { useRecipes } from '../../hooks/useRecipes';
+
+const Sidebar: React.FC = () => {
+  const location = useLocation();
+  const { meals, fetchRecipesByMeal } = useRecipes();
+
+  const isActive = (path: string) => {
+    return location.pathname === path;
+  };
+
+  return (
+    <aside className="w-64 bg-white border-r border-gray-200 h-full fixed left-0 top-16 overflow-y-auto">
+      <div className="py-4 px-3">
+        <ul className="space-y-2">
+          <li>
+            <Link
+              to="/meals"
+              className={`flex items-center p-2 text-base font-normal rounded-lg ${
+                isActive('/meals')
+                  ? 'bg-primary text-white'
+                  : 'text-gray-900 hover:bg-gray-100'
+              }`}
+            >
+              <svg
+                className="w-6 h-6 transition duration-75"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path d="M2 10a8 8 0 018-8v8h8a8 8 0 11-16 0z"></path>
+                <path d="M12 2.252A8.014 8.014 0 0117.748 8H12V2.252z"></path>
+              </svg>
+              <span className="ml-3">Dashboard</span>
+            </Link>
+          </li>
+          <li>
+            <Link
+              to="/ingredients"
+              className={`flex items-center p-2 text-base font-normal rounded-lg ${
+                isActive('/ingredients')
+                  ? 'bg-primary text-white'
+                  : 'text-gray-900 hover:bg-gray-100'
+              }`}
+            >
+              <svg
+                className="w-6 h-6 transition duration-75"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 2a4 4 0 00-4 4v1H5a1 1 0 00-.994.89l-1 9A1 1 0 004 18h12a1 1 0 00.994-1.11l-1-9A1 1 0 0015 7h-1V6a4 4 0 00-4-4zm2 5V6a2 2 0 10-4 0v1h4zm-6 3a1 1 0 112 0 1 1 0 01-2 0zm7-1a1 1 0 100 2 1 1 0 000-2z"
+                  clipRule="evenodd"
+                ></path>
+              </svg>
+              <span className="ml-3">Ingredients</span>
+            </Link>
+          </li>
+          <li>
+            <Link
+              to="/profile"
+              className={`flex items-center p-2 text-base font-normal rounded-lg ${
+                isActive('/profile')
+                  ? 'bg-primary text-white'
+                  : 'text-gray-900 hover:bg-gray-100'
+              }`}
+            >
+              <svg
+                className="w-6 h-6 transition duration-75"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                  clipRule="evenodd"
+                ></path>
+              </svg>
+              <span className="ml-3">Profile</span>
+            </Link>
+          </li>
+        </ul>
+
+        <div className="mt-8">
+          <h3 className="text-lg font-bold text-gray-700 mb-2">My Meals</h3>
+          {meals.length > 0 ? (
+            <ul className="space-y-1">
+              {meals.map((meal) => (
+                <li key={meal.id}>
+                  <button
+                    className={`w-full flex items-center p-2 text-sm font-medium rounded-lg ${
+                      location.pathname === `/meals/${meal.id}`
+                        ? 'bg-accent text-white'
+                        : 'text-gray-700 hover:bg-gray-100'
+                    }`}
+                    onClick={() => fetchRecipesByMeal(meal.id)}
+                  >
+                    <span className="truncate">{meal.name}</span>
+                    <span className="ml-auto bg-gray-200 text-xs font-semibold px-2 py-0.5 rounded">
+                      {meal.recipeCount}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-gray-500">No meals yet. Create your first meal!</p>
+          )}
+        </div>
+      </div>
+    </aside>
+  );
+};
+
+export default Sidebar;
+
+// src/components/layout/Footer.tsx
+import React from 'react';
+
+const Footer: React.FC = () => {
+  return (
+    <footer className="bg-white border-t border-gray-200 p-4 text-center text-gray-500 text-sm">
+      <div className="container mx-auto">
+        <p>
+          &copy; {new Date().getFullYear()} Recipe Optimizer. All rights
+          reserved.
+        </p>
+        <div className="mt-2 flex justify-center space-x-4">
+          <a href="#" className="hover:text-primary">
+            Privacy Policy
+          </a>
+          <a href="#" className="hover:text-primary">
+            Terms of Service
+          </a>
+          <a href="#" className="hover:text-primary">
+            Contact Us
+          </a>
+        </div>
+      </div>
+    </footer>
+  );
+};
+
+export default Footer;
+
+// src/components/layout/Layout.tsx
+import React, { ReactNode } from 'react';
+import { useLocation } from 'react-router-dom';
+import Navbar from './Navbar';
+import Sidebar from './Sidebar';
+import Footer from './Footer';
+import { useAuth } from '../../hooks/useAuth';
+
+interface LayoutProps {
+  children: ReactNode;
+}
+
+const Layout: React.FC<LayoutProps> = ({ children }) => {
+  const { authState } = useAuth();
+  const { isAuthenticated } = authState;
+  const location = useLocation();
+
+  // Check if the current route is a auth route (login, register, etc.)
+  const isAuthRoute = 
+    location.pathname === '/login' || 
+    location.pathname === '/register' || 
+    location.pathname === '/forgot-password';
+
+  return (
+    <div className="flex flex-col min-h-screen bg-gray-50">
+      <Navbar />
+      
+      <div className="flex flex-1 pt-16">
+        {isAuthenticated && !isAuthRoute && (
+          <Sidebar />
+        )}
+        
+        <main 
+          className={`flex-1 p-4 ${
+            isAuthenticated && !isAuthRoute ? 'md:ml-64' : ''
+          }`}
+        >
+          <div className="container mx-auto py-4">
+            {children}
+          </div>
+        </main>
+      </div>
+      
+      <Footer />
+    </div>
+  );
+};
+
+export default Layout;

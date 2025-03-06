@@ -1,0 +1,164 @@
+# Recipe Optimizer - Web Application
+
+## Frontend (React)
+recipe-optimizer-frontend/
+├── public/
+│   ├── index.html
+│   ├── favicon.ico
+│   ├── textures/
+│   │   └── grunge-texture.png
+├── src/
+│   ├── components/
+│   │   ├── layout/
+│   │   │   ├── Navbar.tsx
+│   │   │   ├── Sidebar.tsx
+│   │   │   ├── Footer.tsx
+│   │   │   └── Layout.tsx
+│   │   ├── auth/
+│   │   │   ├── LoginForm.tsx
+│   │   │   ├── RegisterForm.tsx
+│   │   │   └── ForgotPasswordForm.tsx
+│   │   ├── meals/
+│   │   │   ├── MealList.tsx
+│   │   │   ├── MealCard.tsx
+│   │   │   ├── MealForm.tsx
+│   │   │   └── MealDetail.tsx
+│   │   ├── recipes/
+│   │   │   ├── RecipeList.tsx
+│   │   │   ├── RecipeCard.tsx
+│   │   │   ├── RecipeForm.tsx
+│   │   │   ├── RecipeDetail.tsx
+│   │   │   └── RecipeIngredientRow.tsx
+│   │   ├── ingredients/
+│   │   │   ├── IngredientList.tsx
+│   │   │   ├── IngredientSelector.tsx
+│   │   │   └── IngredientForm.tsx
+│   │   ├── ai/
+│   │   │   ├── RecipeSuggestion.tsx
+│   │   │   └── IngredientInfluenceChart.tsx
+│   │   ├── profile/
+│   │   │   ├── ProfilePage.tsx
+│   │   │   └── AvatarUpload.tsx
+│   │   ├── settings/
+│   │   │   ├── UserSettings.tsx
+│   │   │   └── AppSettings.tsx
+│   │   ├── export/
+│   │   │   ├── PDFExport.tsx
+│   │   │   └── PrintView.tsx
+│   │   └── ui/
+│   │       ├── Button.tsx
+│   │       ├── Input.tsx
+│   │       ├── Select.tsx
+│   │       ├── Modal.tsx
+│   │       ├── Rating.tsx
+│   │       └── Card.tsx
+│   ├── context/
+│   │   ├── AuthContext.tsx
+│   │   └── RecipeContext.tsx
+│   ├── hooks/
+│   │   ├── useAuth.ts
+│   │   ├── useMeals.ts
+│   │   ├── useRecipes.ts
+│   │   └── useIngredients.ts
+│   ├── pages/
+│   │   ├── HomePage.tsx
+│   │   ├── LoginPage.tsx
+│   │   ├── RegisterPage.tsx
+│   │   ├── ForgotPasswordPage.tsx
+│   │   ├── MealsPage.tsx
+│   │   ├── MealDetailPage.tsx
+│   │   ├── RecipesPage.tsx
+│   │   ├── RecipeDetailPage.tsx
+│   │   ├── IngredientsPage.tsx
+│   │   ├── ProfilePage.tsx
+│   │   └── SettingsPage.tsx
+│   ├── services/
+│   │   ├── api.ts
+│   │   ├── authService.ts
+│   │   ├── mealService.ts
+│   │   ├── recipeService.ts
+│   │   └── ingredientService.ts
+│   ├── utils/
+│   │   ├── formatters.ts
+│   │   ├── validators.ts
+│   │   └── constants.ts
+│   ├── types/
+│   │   ├── auth.types.ts
+│   │   ├── meal.types.ts
+│   │   ├── recipe.types.ts
+│   │   └── ingredient.types.ts
+│   ├── styles/
+│   │   ├── index.css
+│   │   └── theme.ts
+│   ├── App.tsx
+│   ├── index.tsx
+│   ├── react-app-env.d.ts
+│   └── routes.tsx
+├── package.json
+├── tsconfig.json
+└── tailwind.config.js
+
+## Backend (Python/FastAPI)
+recipe-optimizer-backend/
+├── app/
+│   ├── api/
+│   │   ├── endpoints/
+│   │   │   ├── auth.py
+│   │   │   ├── users.py
+│   │   │   ├── meals.py
+│   │   │   ├── recipes.py
+│   │   │   ├── ingredients.py
+│   │   │   ├── ml.py
+│   │   │   └── social.py
+│   │   ├── dependencies.py
+│   │   └── router.py
+│   ├── core/
+│   │   ├── config.py
+│   │   ├── security.py
+│   │   └── exceptions.py
+│   ├── db/
+│   │   ├── base.py
+│   │   ├── session.py
+│   │   └── init_db.py
+│   ├── models/
+│   │   ├── user.py
+│   │   ├── meal.py
+│   │   ├── recipe.py
+│   │   ├── ingredient.py
+│   │   └── social.py
+│   ├── schemas/
+│   │   ├── user.py
+│   │   ├── meal.py
+│   │   ├── recipe.py
+│   │   ├── ingredient.py
+│   │   ├── social.py
+│   │   └── token.py
+│   ├── services/
+│   │   ├── auth.py
+│   │   ├── user.py
+│   │   ├── meal.py
+│   │   ├── recipe.py
+│   │   ├── ingredient.py
+│   │   └── ml.py
+│   ├── utils/
+│   │   ├── email.py
+│   │   ├── pdf.py
+│   │   └── validators.py
+│   ├── ml/
+│   │   ├── models.py
+│   │   ├── training.py
+│   │   └── prediction.py
+│   └── main.py
+├── alembic/
+│   ├── versions/
+│   ├── env.py
+│   ├── README
+│   └── script.py.mako
+├── migrations/
+├── tests/
+│   ├── api/
+│   ├── services/
+│   └── conftest.py
+├── requirements.txt
+├── .env.example
+└── alembic.ini

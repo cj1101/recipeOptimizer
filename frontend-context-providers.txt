@@ -1,0 +1,517 @@
+// src/context/AuthContext.tsx
+import React, { createContext, useState, useEffect, FC, ReactNode } from 'react';
+import { User, AuthState } from '../types/auth.types';
+import * as authService from '../services/authService';
+
+interface AuthContextProps {
+  authState: AuthState;
+  login: (email: string, password: string) => Promise<void>;
+  register: (username: string, email: string, password: string) => Promise<void>;
+  logout: () => void;
+  updateUser: (userData: Partial<User>) => Promise<void>;
+  uploadProfileImage: (file: File) => Promise<void>;
+}
+
+export const AuthContext = createContext<AuthContextProps>({} as AuthContextProps);
+
+interface AuthProviderProps {
+  children: ReactNode;
+}
+
+export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
+  const [authState, setAuthState] = useState<AuthState>({
+    user: null,
+    token: localStorage.getItem('token'),
+    isAuthenticated: !!localStorage.getItem('token'),
+    loading: true,
+    error: null,
+  });
+
+  useEffect(() => {
+    const loadUser = async () => {
+      if (authState.token) {
+        try {
+          const user = await authService.getCurrentUser();
+          setAuthState({
+            ...authState,
+            user,
+            loading: false,
+          });
+        } catch (error) {
+          localStorage.removeItem('token');
+          setAuthState({
+            user: null,
+            token: null,
+            isAuthenticated: false,
+            loading: false,
+            error: 'Session expired. Please login again.',
+          });
+        }
+      } else {
+        setAuthState({
+          ...authState,
+          loading: false,
+        });
+      }
+    };
+
+    loadUser();
+  }, []);
+
+  const login = async (email: string, password: string) => {
+    setAuthState({
+      ...authState,
+      loading: true,
+      error: null,
+    });
+
+    try {
+      const token = await authService.login({ email, password });
+      localStorage.setItem('token', token);
+
+      const user = await authService.getCurrentUser();
+
+      setAuthState({
+        user,
+        token,
+        isAuthenticated: true,
+        loading: false,
+        error: null,
+      });
+    } catch (error) {
+      setAuthState({
+        ...authState,
+        loading: false,
+        error: 'Invalid credentials',
+      });
+    }
+  };
+
+  const register = async (username: string, email: string, password: string) => {
+    setAuthState({
+      ...authState,
+      loading: true,
+      error: null,
+    });
+
+    try {
+      await authService.register({
+        username,
+        email,
+        password,
+        confirmPassword: password, // In a real app, these would be separate
+      });
+
+      // Auto login after registration
+      await login(email, password);
+    } catch (error) {
+      setAuthState({
+        ...authState,
+        loading: false,
+        error: 'Registration failed. Please try again.',
+      });
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem('token');
+    setAuthState({
+      user: null,
+      token: null,
+      isAuthenticated: false,
+      loading: false,
+      error: null,
+    });
+  };
+
+  const updateUser = async (userData: Partial<User>) => {
+    try {
+      const updatedUser = await authService.updateProfile(userData);
+      setAuthState({
+        ...authState,
+        user: updatedUser,
+      });
+    } catch (error) {
+      setAuthState({
+        ...authState,
+        error: 'Failed to update profile',
+      });
+    }
+  };
+
+  const uploadProfileImage = async (file: File) => {
+    try {
+      const imageUrl = await authService.uploadProfileImage(file);
+      if (authState.user) {
+        setAuthState({
+          ...authState,
+          user: {
+            ...authState.user,
+            profileImage: imageUrl,
+          },
+        });
+      }
+    } catch (error) {
+      setAuthState({
+        ...authState,
+        error: 'Failed to upload profile image',
+      });
+    }
+  };
+
+  return (
+    <AuthContext.Provider
+      value={{
+        authState,
+        login,
+        register,
+        logout,
+        updateUser,
+        uploadProfileImage,
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+// src/context/RecipeContext.tsx
+import React, { createContext, useState, useEffect, FC, ReactNode } from 'react';
+import { Recipe, RecipeFormData } from '../types/recipe.types';
+import { Meal } from '../types/meal.types';
+import { Ingredient } from '../types/ingredient.types';
+import { SortOption } from '../types/common.types';
+import * as mealService from '../services/mealService';
+import * as recipeService from '../services/recipeService';
+import * as ingredientService from '../services/ingredientService';
+import * as mlService from '../services/mlService';
+
+interface RecipeContextProps {
+  meals: Meal[];
+  selectedMeal: Meal | null;
+  recipes: Recipe[];
+  ingredients: Ingredient[];
+  loading: boolean;
+  error: string | null;
+  fetchMeals: (search?: string, sort?: SortOption) => Promise<void>;
+  fetchRecipesByMeal: (mealId: number, sort?: SortOption) => Promise<void>;
+  fetchIngredients: (search?: string) => Promise<void>;
+  createMeal: (name: string) => Promise<Meal>;
+  updateMeal: (id: number, name: string) => Promise<void>;
+  deleteMeal: (id: number) => Promise<void>;
+  createRecipe: (data: RecipeFormData) => Promise<Recipe>;
+  updateRecipe: (id: number, data: Partial<RecipeFormData>) => Promise<void>;
+  deleteRecipe: (id: number) => Promise<void>;
+  rateRecipe: (id: number, rating: number) => Promise<void>;
+  createIngredient: (name: string, isPublic?: boolean) => Promise<Ingredient>;
+  optimizeRecipe: (recipeId: number) => Promise<{
+    optimizedIngredients: Recipe["ingredients"];
+    predictedRating: number;
+    confidence: number;
+  }>;
+  analyzeIngredientInfluence: (mealId: number) => Promise<any>;
+  setSelectedMeal: (meal: Meal | null) => void;
+  clearRecipes: () => void;
+}
+
+export const RecipeContext = createContext<RecipeContextProps>({} as RecipeContextProps);
+
+interface RecipeProviderProps {
+  children: ReactNode;
+}
+
+export const RecipeProvider: FC<RecipeProviderProps> = ({ children }) => {
+  const [meals, setMeals] = useState<Meal[]>([]);
+  const [selectedMeal, setSelectedMeal] = useState<Meal | null>(null);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchMeals = async (search?: string, sort?: SortOption) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const fetchedMeals = await mealService.getMeals(search, sort);
+      setMeals(fetchedMeals);
+    } catch (error) {
+      setError('Failed to fetch meals');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchRecipesByMeal = async (mealId: number, sort?: SortOption) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const fetchedRecipes = await recipeService.getRecipesByMeal(mealId, sort);
+      setRecipes(fetchedRecipes);
+      
+      // Update selected meal
+      const meal = meals.find(m => m.id === mealId) || null;
+      setSelectedMeal(meal);
+    } catch (error) {
+      setError('Failed to fetch recipes');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchIngredients = async (search?: string) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const fetchedIngredients = await ingredientService.getIngredients(search);
+      setIngredients(fetchedIngredients);
+    } catch (error) {
+      setError('Failed to fetch ingredients');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createMeal = async (name: string): Promise<Meal> => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const newMeal = await mealService.createMeal({ name });
+      setMeals([newMeal, ...meals]);
+      return newMeal;
+    } catch (error) {
+      setError('Failed to create meal');
+      console.error(error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateMeal = async (id: number, name: string) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const updatedMeal = await mealService.updateMeal(id, { name });
+      
+      // Update meals state
+      setMeals(meals.map(meal => (meal.id === id ? updatedMeal : meal)));
+      
+      // Update selected meal if it's the one being edited
+      if (selectedMeal && selectedMeal.id === id) {
+        setSelectedMeal(updatedMeal);
+      }
+    } catch (error) {
+      setError('Failed to update meal');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteMeal = async (id: number) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      await mealService.deleteMeal(id);
+      
+      // Update meals state
+      setMeals(meals.filter(meal => meal.id !== id));
+      
+      // Clear selected meal if it's the one being deleted
+      if (selectedMeal && selectedMeal.id === id) {
+        setSelectedMeal(null);
+        setRecipes([]);
+      }
+    } catch (error) {
+      setError('Failed to delete meal');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createRecipe = async (data: RecipeFormData): Promise<Recipe> => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const newRecipe = await recipeService.createRecipe(data);
+      setRecipes([newRecipe, ...recipes]);
+      
+      // Update meal's recipe count
+      if (selectedMeal && selectedMeal.id === data.mealId) {
+        setSelectedMeal({
+          ...selectedMeal,
+          recipeCount: selectedMeal.recipeCount + 1,
+        });
+      }
+      
+      return newRecipe;
+    } catch (error) {
+      setError('Failed to create recipe');
+      console.error(error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const updateRecipe = async (id: number, data: Partial<RecipeFormData>) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const updatedRecipe = await recipeService.updateRecipe(id, data);
+      
+      // Update recipes state
+      setRecipes(recipes.map(recipe => (recipe.id === id ? updatedRecipe : recipe)));
+    } catch (error) {
+      setError('Failed to update recipe');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const deleteRecipe = async (id: number) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      await recipeService.deleteRecipe(id);
+      
+      // Get meal ID before removing from state
+      const deletedRecipe = recipes.find(recipe => recipe.id === id);
+      
+      // Update recipes state
+      setRecipes(recipes.filter(recipe => recipe.id !== id));
+      
+      // Update meal's recipe count if needed
+      if (deletedRecipe && selectedMeal && selectedMeal.id === deletedRecipe.mealId) {
+        setSelectedMeal({
+          ...selectedMeal,
+          recipeCount: Math.max(0, selectedMeal.recipeCount - 1),
+        });
+      }
+    } catch (error) {
+      setError('Failed to delete recipe');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const rateRecipe = async (id: number, rating: number) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const updatedRecipe = await recipeService.rateRecipe(id, rating);
+      
+      // Update recipes state
+      setRecipes(recipes.map(recipe => (recipe.id === id ? updatedRecipe : recipe)));
+    } catch (error) {
+      setError('Failed to rate recipe');
+      console.error(error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createIngredient = async (name: string, isPublic = false): Promise<Ingredient> => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const newIngredient = await ingredientService.createIngredient({ name, isPublic });
+      setIngredients([...ingredients, newIngredient]);
+      return newIngredient;
+    } catch (error) {
+      setError('Failed to create ingredient');
+      console.error(error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const optimizeRecipe = async (recipeId: number) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const result = await mlService.optimizeRecipe(recipeId);
+      return {
+        optimizedIngredients: result.optimized_ingredients,
+        predictedRating: result.predicted_rating,
+        confidence: result.confidence,
+      };
+    } catch (error) {
+      setError('Failed to optimize recipe');
+      console.error(error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const analyzeIngredientInfluence = async (mealId: number) => {
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const result = await mlService.analyzeIngredientInfluence(mealId);
+      return result.influences;
+    } catch (error) {
+      setError('Failed to analyze ingredient influence');
+      console.error(error);
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const clearRecipes = () => {
+    setRecipes([]);
+    setSelectedMeal(null);
+  };
+
+  return (
+    <RecipeContext.Provider
+      value={{
+        meals,
+        selectedMeal,
+        recipes,
+        ingredients,
+        loading,
+        error,
+        fetchMeals,
+        fetchRecipesByMeal,
+        fetchIngredients,
+        createMeal,
+        updateMeal,
+        deleteMeal,
+        createRecipe,
+        updateRecipe,
+        deleteRecipe,
+        rateRecipe,
+        createIngredient,
+        optimizeRecipe,
+        analyzeIngredientInfluence,
+        setSelectedMeal,
+        clearRecipes,
+      }}
+    >
+      {children}
+    </RecipeContext.Provider>
+  );
+};

@@ -1,0 +1,467 @@
+// src/components/meals/MealList.tsx
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { useRecipes } from '../../hooks/useRecipes';
+import { SortOption } from '../../types/common.types';
+import Button from '../ui/Button';
+import Input from '../ui/Input';
+import Select from '../ui/Select';
+import MealCard from './MealCard';
+import CreateMealModal from './CreateMealModal';
+
+const MealList: React.FC = () => {
+  const { meals, loading, error, fetchMeals } = useRecipes();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortOption, setSortOption] = useState<SortOption>(SortOption.DATE_NEWEST);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  useEffect(() => {
+    fetchMeals(searchTerm, sortOption);
+  }, [searchTerm, sortOption, fetchMeals]);
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+  };
+
+  const handleSort = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSortOption(e.target.value as SortOption);
+  };
+
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+        <strong className="font-bold">Error!</strong>
+        <span className="block sm:inline"> {error}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto px-4">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">My Meals</h1>
+        <Button variant="primary" onClick={() => setShowCreateModal(true)}>
+          Create New Meal
+        </Button>
+      </div>
+
+      <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="w-full md:w-1/2">
+          <Input
+            type="text"
+            placeholder="Search meals..."
+            value={searchTerm}
+            onChange={handleSearch}
+            fullWidth
+          />
+        </div>
+        <div className="w-full md:w-1/2">
+          <Select
+            options={[
+              { value: SortOption.NAME_ASC, label: 'Name (A-Z)' },
+              { value: SortOption.NAME_DESC, label: 'Name (Z-A)' },
+              { value: SortOption.RATING_HIGH, label: 'Rating (High to Low)' },
+              { value: SortOption.RATING_LOW, label: 'Rating (Low to High)' },
+              { value: SortOption.DATE_NEWEST, label: 'Date (Newest)' },
+              { value: SortOption.DATE_OLDEST, label: 'Date (Oldest)' },
+            ]}
+            value={sortOption}
+            onChange={handleSort}
+            fullWidth
+          />
+        </div>
+      </div>
+
+      {meals.length === 0 ? (
+        <div className="bg-white rounded-lg shadow-md p-8 text-center">
+          <svg
+            className="mx-auto h-12 w-12 text-gray-400"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
+            />
+          </svg>
+          <h3 className="mt-2 text-lg font-medium text-gray-900">No meals found</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            Get started by creating a new meal.
+          </p>
+          <div className="mt-6">
+            <Button variant="primary" onClick={() => setShowCreateModal(true)}>
+              Create New Meal
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {meals.map((meal) => (
+            <MealCard key={meal.id} meal={meal} />
+          ))}
+        </div>
+      )}
+
+      <CreateMealModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+      />
+    </div>
+  );
+};
+
+export default MealList;
+
+// src/components/meals/MealCard.tsx
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Meal } from '../../types/meal.types';
+import { useRecipes } from '../../hooks/useRecipes';
+import Card, { CardHeader, CardBody, CardFooter } from '../ui/Card';
+
+interface MealCardProps {
+  meal: Meal;
+}
+
+const MealCard: React.FC<MealCardProps> = ({ meal }) => {
+  const navigate = useNavigate();
+  const { fetchRecipesByMeal } = useRecipes();
+
+  const handleClick = () => {
+    fetchRecipesByMeal(meal.id);
+    navigate(`/meals/${meal.id}`);
+  };
+
+  return (
+    <Card className="hover:shadow-xl transition-shadow duration-300" onClick={handleClick}>
+      <CardHeader className="flex justify-between items-center bg-gradient-to-r from-primary to-primary-dark text-white">
+        <h3 className="text-xl font-bold truncate">{meal.name}</h3>
+        <span className="bg-white text-primary text-xs font-bold px-2.5 py-0.5 rounded">
+          {meal.recipeCount} {meal.recipeCount === 1 ? 'Recipe' : 'Recipes'}
+        </span>
+      </CardHeader>
+      <CardBody>
+        <div className="flex items-center mb-4">
+          <div className="flex items-center">
+            <svg className="w-5 h-5 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"></path>
+            </svg>
+            <span className="ml-1 text-sm font-bold text-gray-900">
+              {meal.averageRating ? meal.averageRating.toFixed(1) : '-'}
+            </span>
+          </div>
+          <span className="mx-2 text-gray-300">|</span>
+          <span className="text-sm text-gray-500">
+            Created: {new Date(meal.createdAt).toLocaleDateString()}
+          </span>
+        </div>
+        <div className="mt-2">
+          {meal.recipeCount > 0 ? (
+            <p className="text-sm text-gray-600">
+              Click to view and manage recipes for this meal.
+            </p>
+          ) : (
+            <p className="text-sm text-gray-500 italic">
+              No recipes yet. Click to add your first recipe.
+            </p>
+          )}
+        </div>
+      </CardBody>
+      <CardFooter className="bg-gray-50 text-right">
+        <span className="text-xs text-gray-500">
+          Last updated: {new Date(meal.updatedAt || meal.createdAt).toLocaleDateString()}
+        </span>
+      </CardFooter>
+    </Card>
+  );
+};
+
+export default MealCard;
+
+// src/components/meals/CreateMealModal.tsx
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useRecipes } from '../../hooks/useRecipes';
+import { useForm } from '../../hooks/useForm';
+import Modal from '../ui/Modal';
+import Input from '../ui/Input';
+import Button from '../ui/Button';
+
+interface CreateMealModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+interface CreateMealFormValues {
+  name: string;
+}
+
+const CreateMealModal: React.FC<CreateMealModalProps> = ({ isOpen, onClose }) => {
+  const { createMeal } = useRecipes();
+  const navigate = useNavigate();
+
+  const { values, handleChange, handleSubmit, isSubmitting, resetForm } = 
+    useForm<CreateMealFormValues>({
+      initialValues: {
+        name: '',
+      },
+      onSubmit: async (values) => {
+        try {
+          const newMeal = await createMeal(values.name);
+          resetForm();
+          onClose();
+          navigate(`/meals/${newMeal.id}`);
+        } catch (error) {
+          console.error('Failed to create meal:', error);
+        }
+      },
+    });
+
+  return (
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title="Create New Meal"
+    >
+      <form onSubmit={handleSubmit}>
+        <Input
+          label="Meal Name"
+          type="text"
+          name="name"
+          id="name"
+          value={values.name}
+          onChange={handleChange}
+          placeholder="e.g. Butter Pasta, Chocolate Cake, etc."
+          required
+          fullWidth
+          autoFocus
+        />
+        
+        <div className="flex justify-end space-x-2 mt-4">
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => {
+              resetForm();
+              onClose();
+            }}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            variant="primary"
+            isLoading={isSubmitting}
+          >
+            Create Meal
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+export default CreateMealModal;
+
+// src/components/recipes/RecipeList.tsx
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import { useRecipes } from '../../hooks/useRecipes';
+import { SortOption } from '../../types/common.types';
+import Button from '../ui/Button';
+import Input from '../ui/Input';
+import Select from '../ui/Select';
+import RecipeCard from './RecipeCard';
+import CreateRecipeModal from './CreateRecipeModal';
+import RecipeSuggestion from '../ai/RecipeSuggestion';
+import IngredientInfluenceChart from '../ai/IngredientInfluenceChart';
+
+const RecipeList: React.FC = () => {
+  const { mealId } = useParams<{ mealId: string }>();
+  const { 
+    selectedMeal, 
+    recipes, 
+    loading, 
+    error, 
+    fetchRecipesByMeal 
+  } = useRecipes();
+  
+  const [searchTerm, setSearchTerm] = useState('');
+  const [sortOption, setSortOption] = useState<SortOption>(SortOption.DATE_NEWEST);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showAiSuggestion, setShowAiSuggestion] = useState(false);
+  const [showInfluenceChart, setShowInfluenceChart] = useState(false);
+  
+  useEffect(() => {
+    if (mealId) {
+      fetchRecipesByMeal(parseInt(mealId), sortOption);
+    }
+  }, [mealId, sortOption, fetchRecipesByMeal]);
+  
+  const filteredRecipes = recipes.filter(recipe => 
+    recipe.ingredients.some(ing => 
+      ing.ingredientName.toLowerCase().includes(searchTerm.toLowerCase())
+    ) || 
+    recipe.notes?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchTerm(e.target.value);
+  };
+  
+  const handleSort = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setSortOption(e.target.value as SortOption);
+  };
+  
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+  
+  if (error) {
+    return (
+      <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+        <strong className="font-bold">Error!</strong>
+        <span className="block sm:inline"> {error}</span>
+      </div>
+    );
+  }
+  
+  if (!selectedMeal) {
+    return (
+      <div className="text-center">
+        <p>Meal not found. Please select a meal from the list.</p>
+      </div>
+    );
+  }
+  
+  return (
+    <div className="container mx-auto px-4">
+      <div className="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">{selectedMeal.name}</h1>
+            <p className="text-gray-600">
+              {selectedMeal.recipeCount} {selectedMeal.recipeCount === 1 ? 'recipe' : 'recipes'} • 
+              Average rating: {selectedMeal.averageRating ? selectedMeal.averageRating.toFixed(1) : '-'}/10
+            </p>
+          </div>
+          <div className="flex space-x-2">
+            {recipes.length >= 2 && (
+              <>
+                <Button variant="accent" onClick={() => setShowAiSuggestion(true)}>
+                  Get AI Suggestion
+                </Button>
+                <Button variant="secondary" onClick={() => setShowInfluenceChart(true)}>
+                  Analyze Ingredients
+                </Button>
+              </>
+            )}
+            <Button variant="primary" onClick={() => setShowCreateModal(true)}>
+              Create Recipe
+            </Button>
+          </div>
+        </div>
+      </div>
+      
+      <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="w-full md:w-1/2">
+          <Input
+            type="text"
+            placeholder="Search recipes by ingredient or notes..."
+            value={searchTerm}
+            onChange={handleSearch}
+            fullWidth
+          />
+        </div>
+        <div className="w-full md:w-1/2">
+          <Select
+            options={[
+              { value: SortOption.RATING_HIGH, label: 'Rating (High to Low)' },
+              { value: SortOption.RATING_LOW, label: 'Rating (Low to High)' },
+              { value: SortOption.DATE_NEWEST, label: 'Date (Newest)' },
+              { value: SortOption.DATE_OLDEST, label: 'Date (Oldest)' },
+            ]}
+            value={sortOption}
+            onChange={handleSort}
+            fullWidth
+          />
+        </div>
+      </div>
+
+      {filteredRecipes.length === 0 ? (
+        <div className="bg-white rounded-lg shadow-md p-8 text-center">
+          <svg
+            className="mx-auto h-12 w-12 text-gray-400"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+            aria-hidden="true"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M9 13h6m-3-3v6m-9 1V7a2 2 0 012-2h6l2 2h6a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2z"
+            />
+          </svg>
+          <h3 className="mt-2 text-lg font-medium text-gray-900">No recipes found</h3>
+          <p className="mt-1 text-sm text-gray-500">
+            {searchTerm ? 'Try a different search term.' : 'Get started by creating a new recipe.'}
+          </p>
+          <div className="mt-6">
+            <Button variant="primary" onClick={() => setShowCreateModal(true)}>
+              Create New Recipe
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {filteredRecipes.map((recipe) => (
+            <RecipeCard key={recipe.id} recipe={recipe} />
+          ))}
+        </div>
+      )}
+      
+      <CreateRecipeModal
+        isOpen={showCreateModal}
+        onClose={() => setShowCreateModal(false)}
+        mealId={parseInt(mealId || '0')}
+      />
+      
+      {recipes.length >= 2 && (
+        <>
+          <RecipeSuggestion
+            isOpen={showAiSuggestion}
+            onClose={() => setShowAiSuggestion(false)}
+            recipes={recipes}
+            mealId={parseInt(mealId || '0')}
+          />
+          
+          <IngredientInfluenceChart
+            isOpen={showInfluenceChart}
+            onClose={() => setShowInfluenceChart(false)}
+            mealId={parseInt(mealId || '0')}
+          />
+        </>
+      )}
+    </div>
+  );
+};
+
+export default RecipeList;

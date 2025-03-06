@@ -1,0 +1,338 @@
+# app/services/user.py
+from typing import Optional, List, Any, Dict
+
+from sqlalchemy.orm import Session
+
+from app.core.security import get_password_hash, verify_password
+from app.models.user import User
+from app.schemas.user import UserCreate, UserUpdate
+
+def get_user(db: Session, id: int) -> Optional[User]:
+    return db.query(User).filter(User.id == id).first()
+
+def get_user_by_email(db: Session, email: str) -> Optional[User]:
+    return db.query(User).filter(User.email == email).first()
+
+def get_user_by_username(db: Session, username: str) -> Optional[User]:
+    return db.query(User).filter(User.username == username).first()
+
+def get_users(db: Session, skip: int = 0, limit: int = 100) -> List[User]:
+    return db.query(User).offset(skip).limit(limit).all()
+
+def create_user(db: Session, user_in: UserCreate) -> User:
+    hashed_password = get_password_hash(user_in.password)
+    db_user = User(
+        email=user_in.email,
+        username=user_in.username,
+        hashed_password=hashed_password,
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+def update_user(db: Session, user: User, user_in: UserUpdate) -> User:
+    update_data = user_in.dict(exclude_unset=True)
+    if update_data.get("password"):
+        hashed_password = get_password_hash(update_data["password"])
+        del update_data["password"]
+        update_data["hashed_password"] = hashed_password
+    
+    for field, value in update_data.items():
+        setattr(user, field, value)
+    
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+def update_user_profile_image(db: Session, user: User, image_url: str) -> User:
+    user.profile_image = image_url
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+def authenticate(db: Session, email: str, password: str) -> Optional[User]:
+    user = get_user_by_email(db, email=email)
+    if not user:
+        return None
+    if not verify_password(password, user.hashed_password):
+        return None
+    return user
+
+# app/services/meal.py
+from typing import Optional, List, Any, Dict
+from sqlalchemy import func
+from sqlalchemy.orm import Session
+
+from app.models.meal import Meal
+from app.models.recipe import Recipe
+from app.schemas.meal import MealCreate, MealUpdate
+
+def get_meal(db: Session, meal_id: int) -> Optional[Meal]:
+    return db.query(Meal).filter(Meal.id == meal_id).first()
+
+def get_meals(
+    db: Session, 
+    user_id: int, 
+    skip: int = 0, 
+    limit: int = 100,
+    search: Optional[str] = None,
+    sort: Optional[str] = None
+) -> List[Meal]:
+    query = db.query(Meal).filter(Meal.user_id == user_id)
+    
+    # Apply search filter
+    if search:
+        query = query.filter(Meal.name.ilike(f"%{search}%"))
+    
+    # Apply sorting
+    if sort:
+        if sort == "name_asc":
+            query = query.order_by(Meal.name.asc())
+        elif sort == "name_desc":
+            query = query.order_by(Meal.name.desc())
+        elif sort == "date_newest":
+            query = query.order_by(Meal.created_at.desc())
+        elif sort == "date_oldest":
+            query = query.order_by(Meal.created_at.asc())
+    else:
+        # Default sort by newest
+        query = query.order_by(Meal.created_at.desc())
+    
+    return query.offset(skip).limit(limit).all()
+
+def create_meal(db: Session, meal_in: MealCreate, user_id: int) -> Meal:
+    db_meal = Meal(
+        name=meal_in.name,
+        user_id=user_id,
+    )
+    db.add(db_meal)
+    db.commit()
+    db.refresh(db_meal)
+    return db_meal
+
+def update_meal(db: Session, meal: Meal, meal_in: MealUpdate) -> Meal:
+    update_data = meal_in.dict(exclude_unset=True)
+    
+    for field, value in update_data.items():
+        setattr(meal, field, value)
+    
+    db.add(meal)
+    db.commit()
+    db.refresh(meal)
+    return meal
+
+def delete_meal(db: Session, meal_id: int) -> None:
+    meal = db.query(Meal).filter(Meal.id == meal_id).first()
+    if meal:
+        db.delete(meal)
+        db.commit()
+
+# app/services/recipe.py
+from typing import Optional, List, Any, Dict
+from sqlalchemy import func
+from sqlalchemy.orm import Session, joinedload
+
+from app.models.recipe import Recipe, RecipeIngredient
+from app.models.ingredient import Ingredient
+from app.schemas.recipe import RecipeCreate, RecipeUpdate, RecipeIngredientCreate
+
+def get_recipe(db: Session, recipe_id: int) -> Optional[Recipe]:
+    return db.query(Recipe).filter(Recipe.id == recipe_id).first()
+
+def get_recipes_by_meal(
+    db: Session, 
+    meal_id: int, 
+    skip: int = 0, 
+    limit: int = 100,
+    sort: Optional[str] = None
+) -> List[Recipe]:
+    query = db.query(Recipe).filter(Recipe.meal_id == meal_id)
+    
+    # Apply sorting
+    if sort:
+        if sort == "rating_high":
+            query = query.order_by(Recipe.rating.desc())
+        elif sort == "rating_low":
+            query = query.order_by(Recipe.rating.asc())
+        elif sort == "date_newest":
+            query = query.order_by(Recipe.created_at.desc())
+        elif sort == "date_oldest":
+            query = query.order_by(Recipe.created_at.asc())
+    else:
+        # Default sort by newest
+        query = query.order_by(Recipe.created_at.desc())
+    
+    return query.offset(skip).limit(limit).all()
+
+def create_recipe(db: Session, recipe_in: RecipeCreate, user_id: int) -> Recipe:
+    db_recipe = Recipe(
+        meal_id=recipe_in.meal_id,
+        rating=recipe_in.rating,
+        notes=recipe_in.notes,
+        is_ai_generated=False  # Default value
+    )
+    db.add(db_recipe)
+    db.flush()  # Get the recipe ID
+    
+    # Add ingredients
+    for ingredient_data in recipe_in.ingredients:
+        db_recipe_ingredient = RecipeIngredient(
+            recipe_id=db_recipe.id,
+            ingredient_id=ingredient_data.ingredient_id,
+            quantity=ingredient_data.quantity,
+            unit=ingredient_data.unit
+        )
+        db.add(db_recipe_ingredient)
+    
+    db.commit()
+    db.refresh(db_recipe)
+    return db_recipe
+
+def update_recipe(db: Session, recipe: Recipe, recipe_in: RecipeUpdate) -> Recipe:
+    update_data = recipe_in.dict(exclude_unset=True, exclude={"ingredients"})
+    
+    # Update recipe fields
+    for field, value in update_data.items():
+        setattr(recipe, field, value)
+    
+    # Update ingredients if provided
+    if recipe_in.ingredients is not None:
+        # Delete existing ingredients
+        db.query(RecipeIngredient).filter(RecipeIngredient.recipe_id == recipe.id).delete()
+        
+        # Add new ingredients
+        for ingredient_data in recipe_in.ingredients:
+            db_recipe_ingredient = RecipeIngredient(
+                recipe_id=recipe.id,
+                ingredient_id=ingredient_data.ingredient_id,
+                quantity=ingredient_data.quantity,
+                unit=ingredient_data.unit
+            )
+            db.add(db_recipe_ingredient)
+    
+    db.add(recipe)
+    db.commit()
+    db.refresh(recipe)
+    return recipe
+
+def update_recipe_rating(db: Session, recipe_id: int, rating: float) -> Recipe:
+    recipe = db.query(Recipe).filter(Recipe.id == recipe_id).first()
+    if recipe:
+        recipe.rating = rating
+        db.add(recipe)
+        db.commit()
+        db.refresh(recipe)
+    return recipe
+
+def delete_recipe(db: Session, recipe_id: int) -> None:
+    recipe = db.query(Recipe).filter(Recipe.id == recipe_id).first()
+    if recipe:
+        db.delete(recipe)
+        db.commit()
+
+# app/services/ingredient.py
+from typing import Optional, List, Any, Dict
+from sqlalchemy import or_
+from sqlalchemy.orm import Session
+
+from app.models.ingredient import Ingredient
+from app.schemas.ingredient import IngredientCreate, IngredientUpdate
+
+def get_ingredient(db: Session, ingredient_id: int) -> Optional[Ingredient]:
+    return db.query(Ingredient).filter(Ingredient.id == ingredient_id).first()
+
+def get_ingredients(
+    db: Session, 
+    user_id: int, 
+    skip: int = 0, 
+    limit: int = 100,
+    search: Optional[str] = None,
+    include_public: bool = True
+) -> List[Ingredient]:
+    if include_public:
+        query = db.query(Ingredient).filter(
+            or_(
+                Ingredient.user_id == user_id,
+                Ingredient.is_public == True
+            )
+        )
+    else:
+        query = db.query(Ingredient).filter(Ingredient.user_id == user_id)
+    
+    # Apply search filter
+    if search:
+        query = query.filter(Ingredient.name.ilike(f"%{search}%"))
+    
+    # Sort by name
+    query = query.order_by(Ingredient.name.asc())
+    
+    return query.offset(skip).limit(limit).all()
+
+def create_ingredient(db: Session, ingredient_in: IngredientCreate, user_id: int) -> Ingredient:
+    db_ingredient = Ingredient(
+        name=ingredient_in.name,
+        user_id=user_id,
+        is_public=ingredient_in.is_public
+    )
+    db.add(db_ingredient)
+    db.commit()
+    db.refresh(db_ingredient)
+    return db_ingredient
+
+def update_ingredient(db: Session, ingredient: Ingredient, ingredient_in: IngredientUpdate) -> Ingredient:
+    update_data = ingredient_in.dict(exclude_unset=True)
+    
+    for field, value in update_data.items():
+        setattr(ingredient, field, value)
+    
+    db.add(ingredient)
+    db.commit()
+    db.refresh(ingredient)
+    return ingredient
+
+def delete_ingredient(db: Session, ingredient_id: int) -> None:
+    ingredient = db.query(Ingredient).filter(Ingredient.id == ingredient_id).first()
+    if ingredient:
+        db.delete(ingredient)
+        db.commit()
+
+# app/services/social.py
+from typing import Optional, List
+from sqlalchemy.orm import Session
+from datetime import datetime
+
+from app.models.social_share import SocialShare
+from app.schemas.social import SocialShareCreate
+
+def get_social_share(db: Session, share_id: int) -> Optional[SocialShare]:
+    return db.query(SocialShare).filter(SocialShare.id == share_id).first()
+
+def get_social_share_by_token(db: Session, token: str) -> Optional[SocialShare]:
+    # Get active (non-expired) share links
+    now = datetime.now()
+    return db.query(SocialShare).filter(
+        SocialShare.share_token == token,
+        SocialShare.expiry_date > now
+    ).first()
+
+def get_social_shares_by_recipe(db: Session, recipe_id: int) -> List[SocialShare]:
+    return db.query(SocialShare).filter(SocialShare.recipe_id == recipe_id).all()
+
+def create_social_share(db: Session, share_in: SocialShareCreate, token: str) -> SocialShare:
+    db_share = SocialShare(
+        recipe_id=share_in.recipe_id,
+        share_token=token
+    )
+    db.add(db_share)
+    db.commit()
+    db.refresh(db_share)
+    return db_share
+
+def delete_social_share(db: Session, share_id: int) -> None:
+    share = db.query(SocialShare).filter(SocialShare.id == share_id).first()
+    if share:
+        db.delete(share)
+        db.commit()

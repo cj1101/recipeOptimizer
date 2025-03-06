@@ -1,0 +1,279 @@
+// src/routes.tsx
+import React from 'react';
+import { Navigate, RouteObject } from 'react-router-dom';
+import ProtectedRoute from './components/auth/ProtectedRoute';
+import Layout from './components/layout/Layout';
+
+// Pages
+import HomePage from './pages/HomePage';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import MealsPage from './pages/MealsPage';
+import MealDetailPage from './pages/MealDetailPage';
+import IngredientsPage from './pages/IngredientsPage';
+import ProfilePage from './pages/ProfilePage';
+import SettingsPage from './pages/SettingsPage';
+
+export const routes: RouteObject[] = [
+  {
+    path: '/',
+    element: <Layout />,
+    children: [
+      {
+        path: '/',
+        element: <HomePage />,
+      },
+      {
+        path: 'login',
+        element: <LoginPage />,
+      },
+      {
+        path: 'register',
+        element: <RegisterPage />,
+      },
+      {
+        path: 'forgot-password',
+        element: <ForgotPasswordPage />,
+      },
+      {
+        element: <ProtectedRoute />,
+        children: [
+          {
+            path: 'meals',
+            element: <MealsPage />,
+          },
+          {
+            path: 'meals/:mealId',
+            element: <MealDetailPage />,
+          },
+          {
+            path: 'ingredients',
+            element: <IngredientsPage />,
+          },
+          {
+            path: 'profile',
+            element: <ProfilePage />,
+          },
+          {
+            path: 'settings',
+            element: <SettingsPage />,
+          },
+        ],
+      },
+      {
+        path: '*',
+        element: <Navigate to="/" replace />,
+      },
+    ],
+  },
+];
+
+// src/App.tsx
+import React from 'react';
+import { createBrowserRouter, RouterProvider } from 'react-router-dom';
+import { routes } from './routes';
+import { AuthProvider } from './context/AuthContext';
+import { RecipeProvider } from './context/RecipeContext';
+import { useScrollToTop } from './hooks/useScrollToTop';
+
+// Create the router
+const router = createBrowserRouter(routes);
+
+const App: React.FC = () => {
+  // Scroll to top on route change
+  useScrollToTop();
+
+  return (
+    <AuthProvider>
+      <RecipeProvider>
+        <RouterProvider router={router} />
+      </RecipeProvider>
+    </AuthProvider>
+  );
+};
+
+export default App;
+
+// src/index.tsx
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import './styles/index.css';
+import App from './App';
+import reportWebVitals from './reportWebVitals';
+
+const root = ReactDOM.createRoot(
+  document.getElementById('root') as HTMLElement
+);
+
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+
+reportWebVitals();
+
+// src/styles/index.css
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+
+/* Import custom fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+/* Custom grunge texture overlay */
+.grunge-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-image: url('/public/textures/grunge-texture.png');
+  opacity: 0.1;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+}
+
+/* Truncate text with ellipsis */
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Line clamp utilities */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c5c5c5;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a1a1;
+}
+
+/* Root element styles */
+html, body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+
+/* Custom focus styles */
+*:focus-visible {
+  outline: 2px solid theme('colors.primary.500');
+  outline-offset: 2px;
+}
+
+/* Main content area */
+main {
+  min-height: calc(100vh - 64px - 80px); /* Viewport height minus header and footer */
+}
+
+/* Animation utilities */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fadeIn {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+/* Custom form controls */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 5px;
+  border-radius: 5px;
+  background: #e2e8f0;
+  outline: none;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: theme('colors.primary.500');
+  cursor: pointer;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: theme('colors.primary.500');
+  cursor: pointer;
+}
+
+/* Tailwind config (to be moved to tailwind.config.js) */
+/* This is just for reference of our custom theme colors */
+/*
+module.exports = {
+  theme: {
+    extend: {
+      colors: {
+        primary: {
+          DEFAULT: '#4F46E5',
+          50: '#EEECFE',
+          100: '#D7D3FD',
+          200: '#B0A8FA',
+          300: '#897CF8',
+          400: '#6251F5',
+          500: '#4F46E5',
+          600: '#2921BC',
+          700: '#1E1886',
+          800: '#141051',
+          900: '#0A081B',
+          dark: '#2921BC',
+        },
+        accent: {
+          DEFAULT: '#06B6D4',
+          50: '#E0F7FA',
+          100: '#B2EBF2',
+          200: '#80DEEA',
+          300: '#4DD0E1',
+          400: '#26C6DA',
+          500: '#06B6D4',
+          600: '#0097A7',
+          700: '#00838F',
+          800: '#006064',
+          900: '#004D40',
+          dark: '#0097A7',
+        },
+      },
+    },
+  },
+  plugins: [
+    require('@tailwindcss/forms'),
+  ],
+};
+*/
